@@ -14,3 +14,8 @@ Route::set('rest_version', 'api/v1/version')
         'action'     => 'index',
     ));
 
+Route::set('rest_docs', 'api/v1/docs')
+    ->defaults(array(
+        'controller' => 'Rest_Docs',
+        'action'     => 'index',
+    ));
