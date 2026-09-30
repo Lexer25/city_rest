@@ -1,5 +1,14 @@
 <?php defined('SYSPATH') or die('No direct script access.');
 
+/**
+ * Organization — доменная модель организации.
+ *
+ * Работает с таблицей ORGANIZATION в InterBase.
+ * Не знает ничего про HTTP, JSON, REST — это чистая модель данных.
+ *
+ * Клиентские имена полей (snake_case) маппятся на UPPERCASE-колонки БД
+ * через константы FIELDS / SORTABLE / FILTERS.
+ */
 class Organization
 {
     /** @var Database */
@@ -8,10 +17,7 @@ class Organization
     /** Таблица в БД */
     const TABLE = 'ORGANIZATION';
 
-    /**
-     * Соответствие: клиентское имя → реальная колонка.
-     * UPPERCASE, потому что InterBase отдаёт всё в верхнем регистре.
-     */
+    /** Клиентское имя → реальная колонка */
     const FIELDS = array(
         'id_org'            => 'ID_ORG',
         'id_db'             => 'ID_DB',
@@ -42,13 +48,26 @@ class Organization
         'guid'      => 'GUID',
     );
 
-    /** Какие поля можно писать при create/update */
+    /** Что разрешено писать при create/update */
     const WRITABLE = array(
         'name', 'id_parent', 'flag', 'id_def_accessname', 'divcode', 'guid',
     );
 
     /** Обязательные при создании */
     const REQUIRED_ON_CREATE = array('divcode');
+
+    /** Максимальные длины строковых полей */
+    const MAX_LENGTH = array(
+        'name'    => 50,
+        'divcode' => 50,
+        'guid'    => 50,
+    );
+
+    /** Целочисленные поля */
+    const INT_FIELDS = array('id_parent', 'flag', 'id_def_accessname');
+
+    /** Имя генератора для ID_ORG (см. CREATE GENERATOR GEN_ORG_ID) */
+    const GEN_ID = 'GEN_ORG_ID';
 
     public function __construct()
     {
@@ -66,7 +85,12 @@ class Organization
 
         $where = $this->_build_where($filters);
 
-        $sort_col = isset(self::SORTABLE[$sort]) ? self::SORTABLE[$sort] : 'ID_ORG';
+        // array_key_exists, а не isset — self::SORTABLE это константа,
+        // isset() к ней неприменим (PHP: "Cannot use isset() on the result
+        // of an expression")
+        $sort_col = array_key_exists($sort, self::SORTABLE)
+            ? self::SORTABLE[$sort]
+            : 'ID_ORG';
         $order    = strtoupper($order) === 'DESC' ? 'DESC' : 'ASC';
 
         $sql = 'SELECT FIRST ' . $limit . ' SKIP ' . $offset . ' '
@@ -75,14 +99,14 @@ class Organization
              . $where
              . ' ORDER BY ' . $sort_col . ' ' . $order;
 
-        $rows  = DB::query(Database::SELECT, $sql)
+        $rows = DB::query(Database::SELECT, $sql)
             ->execute($this->_db)
             ->as_array();
 
-        $items = $this->_normalize_rows($rows);
-        $total = $this->count($filters);
-
-        return array('items' => $items, 'total' => $total);
+        return array(
+            'items' => $this->_normalize_rows($rows),
+            'total' => $this->count($filters),
+        );
     }
 
     public function count(array $filters)
@@ -145,7 +169,7 @@ class Organization
         $cols = array('ID_ORG', 'ID_DB', 'TIME_STAMP');
         $vals = array(
             (int) $id_org,
-            1,
+            isset($data['id_db']) ? (int) $data['id_db'] : 1,
             'CURRENT_TIMESTAMP',
         );
 
@@ -153,8 +177,7 @@ class Organization
             if (!array_key_exists($name, $data)) {
                 continue;
             }
-            $col    = self::FIELDS[$name];
-            $cols[] = $col;
+            $cols[] = self::FIELDS[$name];
             $vals[] = $this->_q($this->_cast($name, $data[$name]));
         }
 
@@ -188,8 +211,8 @@ class Organization
             if (!array_key_exists($name, $data)) {
                 continue;
             }
-            $col    = self::FIELDS[$name];
-            $set[]  = $col . ' = ' . $this->_q($this->_cast($name, $data[$name]));
+            $set[] = self::FIELDS[$name]
+                   . ' = ' . $this->_q($this->_cast($name, $data[$name]));
         }
 
         if (empty($set)) {
@@ -239,7 +262,8 @@ class Organization
     {
         $where = array();
         foreach ($filters as $key => $val) {
-            if (!isset(self::FILTERS[$key])) {
+            // array_key_exists — self::FILTERS константа
+            if (!array_key_exists($key, self::FILTERS)) {
                 continue;
             }
             if ($val === '' || $val === null) {
@@ -265,7 +289,9 @@ class Organization
 
         $item = array();
         foreach (self::FIELDS as $client => $col) {
-            $item[$client] = isset($u[strtoupper($col)]) ? $u[strtoupper($col)] : null;
+            $item[$client] = isset($u[strtoupper($col)])
+                ? $u[strtoupper($col)]
+                : null;
         }
         return $item;
     }
@@ -275,14 +301,10 @@ class Organization
         if ($value === null) {
             return null;
         }
-        switch ($name) {
-            case 'id_parent':
-            case 'flag':
-            case 'id_def_accessname':
-                return (int) $value;
-            default:
-                return (string) $value;
+        if (in_array($name, self::INT_FIELDS, true)) {
+            return (int) $value;
         }
+        return (string) $value;
     }
 
     protected function _validate(array $data, $is_create)
@@ -297,13 +319,7 @@ class Organization
             }
         }
 
-        // Длины строк
-        $max_len = array(
-            'name'    => 50,
-            'divcode' => 50,
-            'guid'    => 50,
-        );
-        foreach ($max_len as $name => $max) {
+        foreach (self::MAX_LENGTH as $name => $max) {
             if (isset($data[$name]) && $data[$name] !== null) {
                 if (function_exists('mb_strlen')
                     && mb_strlen((string) $data[$name]) > $max) {
@@ -312,9 +328,7 @@ class Organization
             }
         }
 
-        // Нечисловые значения в числовых полях
-        $int_fields = array('id_parent', 'flag', 'id_def_accessname');
-        foreach ($int_fields as $name) {
+        foreach (self::INT_FIELDS as $name) {
             if (isset($data[$name]) && $data[$name] !== null && $data[$name] !== '') {
                 if (!is_numeric($data[$name])) {
                     $errors[$name] = 'must be integer';
@@ -325,22 +339,26 @@ class Organization
         return $errors;
     }
 
+    /**
+     * Следующий ID_ORG из генератора.
+     * Требует: CREATE GENERATOR GEN_ORG_ID; (в InterBase)
+     */
     protected function _next_id()
     {
         $row = DB::query(Database::SELECT,
-                'SELECT MAX(ID_ORG) AS MAX_ID FROM ' . self::TABLE)
+                'SELECT GEN_ID(' . self::GEN_ID . ', 1) AS GEN FROM RDB$DATABASE')
             ->execute($this->_db)
             ->current();
 
         if (!$row) {
-            return 1;
+            throw new Kohana_Exception('Cannot get next ID from ' . self::GEN_ID);
         }
         $u = array_change_key_case($row, CASE_UPPER);
-        return (isset($u['MAX_ID']) ? (int) $u['MAX_ID'] : 0) + 1;
+        return (int) $u['GEN'];
     }
 
     /**
-     * SQL-литерал для InterBase.
+     * SQL-литерал для InterBase/Firebird.
      * NULL → NULL, число → число, строка → 'строка' с удвоением кавычек.
      */
     protected function _q($v)

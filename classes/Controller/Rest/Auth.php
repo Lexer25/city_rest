@@ -35,7 +35,7 @@ class Controller_Rest_Auth extends Controller
             return;
         }
         $u = Rest_Auth::login($login, $pass);
-Kohana::$log->add(Log::INFO, '39 u  ' .Debug::vars($u));
+//Kohana::$log->add(Log::INFO, '39 u  ' .Debug::vars($u));
         if ($u === null) {
             $this->_respond(Rest_Response::error(
                 Rest_Error::UNAUTHORIZED,
@@ -46,10 +46,10 @@ Kohana::$log->add(Log::INFO, '39 u  ' .Debug::vars($u));
         }
 
         $token = Rest_Auth::issue_token($u);
-		Kohana::$log->add(Log::INFO, '51 token ' .Debug::vars($token));
+//		Kohana::$log->add(Log::INFO, '51 token ' .Debug::vars($token));
         $ttl   = (int) Kohana::$config->load('rest.jwt.ttl');
 
-Kohana::$log->add(Log::INFO, '51 ttl ' .Debug::vars($ttl));
+//Kohana::$log->add(Log::INFO, '51 ttl ' .Debug::vars($ttl));
         $this->_respond(Rest_Response::ok(array(
             'token'      => $token,
             'token_type' => 'Bearer',

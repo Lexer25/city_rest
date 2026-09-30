@@ -3,23 +3,24 @@
 class Controller_Rest_Orgs extends Controller_Rest_Base
 {
     protected $_resource_name = 'orgs';
-    protected $_model_class   = 'Model_Orgs';
+
+    /** @var Organization */
+    protected $_org;
+
+    public function before()
+    {
+        parent::before();
+        $this->_org = new Organization();
+    }
 
     // GET /api/v1/orgs
     public function action_index()
     {
-        if (!$this->_require_model()) return;
-
         $p = Rest_Pagination::from_request($this->request);
 
-        $res = $this->_model->search(
+        $res = $this->_org->get_list(
             $p->filters, $p->limit, $p->offset, $p->sort, $p->order
         );
-
-        if (!empty($res['error'])) {
-            $this->_respond($this->_wrap_model_error($res, Rest_Error::DB_ERROR));
-            return;
-        }
 
         $p->total = (int) Arr::get($res, 'total', 0);
 
@@ -32,119 +33,84 @@ class Controller_Rest_Orgs extends Controller_Rest_Base
     // GET /api/v1/orgs/<id>
     public function action_get()
     {
-        if (!$this->_require_model()) return;
+        $id  = (string) $this->request->param('id');
+        $org = $this->_org->get_by_guid($id);
 
-        $id = (string) $this->request->param('id');
-        if ($id === '') {
-            $this->_respond(Rest_Response::error(
-                Rest_Error::VALIDATION_ERROR, 'id is required', 400
-            ));
-            return;
-        }
-
-        $res = $this->_model->find_by_guid($id);
-        if (!empty($res['error'])) {
-            $this->_respond($this->_wrap_model_error($res, Rest_Error::DB_ERROR));
-            return;
-        }
-        if (empty($res['item'])) {
+        if ($org === null) {
             $this->_respond(Rest_Response::error(
                 Rest_Error::ORG_NOT_FOUND, 'Organization not found', 404
             ));
             return;
         }
 
-        $this->_respond(Rest_Response::ok(array('item' => $res['item'])));
+        $this->_respond(Rest_Response::ok(array('item' => $org)));
     }
 
     // POST /api/v1/orgs
     public function action_create()
     {
-        if (!$this->_require_model())  return;
-        if (!$this->_require_auth())   return;
-        $this->_audit_context();
+        if (!$this->_require_auth()) return;
 
         $data = $this->_json_body();
         if (empty($data)) {
             $this->_respond(Rest_Response::error(
-                Rest_Error::VALIDATION_ERROR,
-                'Request body must be a JSON object', 400
+                Rest_Error::VALIDATION_ERROR, 'Empty body', 400
             ));
             return;
         }
 
-        $res = $this->_model->create($data);
-        if (!empty($res['error'])) {
-            $this->_respond($this->_wrap_model_error($res));
+        $res = $this->_org->create($data);
+        if (isset($res['error'])) {
+            $this->_respond(Rest_Response::error(
+                Rest_Error::VALIDATION_ERROR,
+                $res['error'],
+                400,
+                isset($res['fields']) ? array('fields' => $res['fields']) : array()
+            ));
             return;
         }
 
         $this->response->status(201);
-        $this->_respond(Rest_Response::ok(array(
-            'item' => Arr::get($res, 'item', array()),
-        )));
+        $this->_respond(Rest_Response::ok(array('item' => $res)));
     }
 
-    // PUT /api/v1/orgs/<id>   (или PATCH)
+    // PUT /api/v1/orgs/<id>
     public function action_update()
     {
-        if (!$this->_require_model()) return;
-        if (!$this->_require_auth())  return;
-        $this->_audit_context();
+        if (!$this->_require_auth()) return;
 
-        $id = (string) $this->request->param('id');
-        if ($id === '') {
-            $this->_respond(Rest_Response::error(
-                Rest_Error::VALIDATION_ERROR, 'id is required', 400
-            ));
-            return;
-        }
-
+        $id   = (string) $this->request->param('id');
         $data = $this->_json_body();
-        if (empty($data)) {
-            $this->_respond(Rest_Response::error(
-                Rest_Error::VALIDATION_ERROR,
-                'Request body must be a JSON object', 400
-            ));
-            return;
-        }
 
-        $res = $this->_model->update($id, $data);
-        if (!empty($res['error'])) {
-            $this->_respond($this->_wrap_model_error($res));
-            return;
-        }
-        if (empty($res['item'])) {
+        $res = $this->_org->update($id, $data);
+        if ($res === null) {
             $this->_respond(Rest_Response::error(
                 Rest_Error::ORG_NOT_FOUND, 'Organization not found', 404
             ));
             return;
         }
+        if (isset($res['error'])) {
+            $this->_respond(Rest_Response::error(
+                Rest_Error::VALIDATION_ERROR,
+                $res['error'],
+                400,
+                isset($res['fields']) ? array('fields' => $res['fields']) : array()
+            ));
+            return;
+        }
 
-        $this->_respond(Rest_Response::ok(array('item' => $res['item'])));
+        $this->_respond(Rest_Response::ok(array('item' => $res)));
     }
 
     // DELETE /api/v1/orgs/<id>
     public function action_delete()
     {
-        if (!$this->_require_model()) return;
-        if (!$this->_require_auth())  return;
-        $this->_audit_context();
+        if (!$this->_require_auth()) return;
 
-        $id = (string) $this->request->param('id');
-        if ($id === '') {
-            $this->_respond(Rest_Response::error(
-                Rest_Error::VALIDATION_ERROR, 'id is required', 400
-            ));
-            return;
-        }
+        $id  = (string) $this->request->param('id');
+        $ok  = $this->_org->delete($id);
 
-        $res = $this->_model->delete($id);
-        if (!empty($res['error'])) {
-            $this->_respond($this->_wrap_model_error($res));
-            return;
-        }
-        if (empty($res['deleted'])) {
+        if (!$ok) {
             $this->_respond(Rest_Response::error(
                 Rest_Error::ORG_NOT_FOUND, 'Organization not found', 404
             ));

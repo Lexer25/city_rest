@@ -41,10 +41,3 @@ Route::set('rest_orgs', 'api/v1/orgs(/<id>)', array(
         'action'     => 'dispatch',
     ));
 
-Route::set('rest_persons', 'api/v1/persons(/<id>)', array(
-        'id' => '[^/.,;?\n]++',
-    ))
-    ->defaults(array(
-        'controller' => 'Rest_Persons',
-        'action'     => 'dispatch',
-    ));
