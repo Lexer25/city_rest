@@ -60,23 +60,43 @@ class Controller_Probe extends Controller
                 $out .= "                  -> EXCEPTION: " . $e->getMessage() . "\n";
             }
         }
-$out .= "\n=== Controller lookup ===\n";
-$lookups = array(
-    'controller/rest/version',
-    'Controller/Rest/Version',
-    'Controller/Rest/Docs',     // ← добавьте
-    'Controller/Rest/docs',     // ← и это
-    'Controller/Rest/Auth',     // ← и это для сравнения
+				$out .= "\n=== Controller lookup ===\n";
+				$lookups = array(
+					'controller/rest/version',
+					'Controller/Rest/Version',
+					'Controller/Rest/Docs',     // ← добавьте
+					'Controller/Rest/docs',     // ← и это
+					'Controller/Rest/Auth',     // ← и это для сравнения
+				);
+				foreach ($lookups as $path) {
+					$found = Kohana::find_file('classes', $path);
+					$out .= sprintf("  find_file('%s') = %s\n", $path, $found ? $found : 'FALSE');
+				}
+
+				$out .= "\n=== class_exists ===\n";
+				foreach (array('Controller_Rest_Version', 'Rest_Jwt', 'Rest_Response', 'Rest_Error') as $cls) {
+					$out .= sprintf("  %-30s %s\n", $cls, class_exists($cls) ? 'OK' : 'MISSING');
+				}
+				
+				$out .= "\n=== Config groups ===\n";
+$out .= "load('resources') = " . var_export(Kohana::$config->load('resources') !== null, true) . "\n";
+$out .= "load('endpoints') = " . var_export(Kohana::$config->load('endpoints') !== null, true) . "\n";
+$out .= "load('rest')      = " . var_export(Kohana::$config->load('rest') !== null, true) . "\n";
+
+$out .= "\n=== find_file config ===\n";
+foreach (array('rest', 'resources', 'endpoints') as $g) {
+    $p = Kohana::find_file('config', $g);
+    $out .= sprintf("  find_file('config', '%s') = %s\n",
+    $g,
+    is_array($p) ? json_encode($p) : ($p ? $p : 'FALSE')
 );
-foreach ($lookups as $path) {
-    $found = Kohana::find_file('classes', $path);
-    $out .= sprintf("  find_file('%s') = %s\n", $path, $found ? $found : 'FALSE');
 }
 
-$out .= "\n=== class_exists ===\n";
-foreach (array('Controller_Rest_Version', 'Rest_Jwt', 'Rest_Response', 'Rest_Error') as $cls) {
-    $out .= sprintf("  %-30s %s\n", $cls, class_exists($cls) ? 'OK' : 'MISSING');
-}
-        $this->response->body($out);
-    }
+
+						$this->response->body($out);
+	}
+	
+	
+	
+	
 }

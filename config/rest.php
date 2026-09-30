@@ -24,7 +24,7 @@ return array(
     ),
 
     'audit' => array(
-        'enabled' => true,
+        'enabled' => false,
         'table'   => 'AUDIT_LOG',
         'source'  => 'rest-api',
     ),
