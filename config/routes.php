@@ -19,3 +19,9 @@ Route::set('rest_docs', 'api/v1/docs')
         'controller' => 'Rest_Docs',
         'action'     => 'index',
     ));
+	Route::set('rest_docs', 'api/v1/orgs')
+    ->defaults(array(
+        'controller' => 'Rest_Orgs',
+        'action'     => 'index',
+    ));
+	

@@ -60,10 +60,13 @@ class Controller_Probe extends Controller
                 $out .= "                  -> EXCEPTION: " . $e->getMessage() . "\n";
             }
         }
-		$out .= "\n=== Controller lookup ===\n";
+$out .= "\n=== Controller lookup ===\n";
 $lookups = array(
     'controller/rest/version',
     'Controller/Rest/Version',
+    'Controller/Rest/Docs',     // ← добавьте
+    'Controller/Rest/docs',     // ← и это
+    'Controller/Rest/Auth',     // ← и это для сравнения
 );
 foreach ($lookups as $path) {
     $found = Kohana::find_file('classes', $path);
