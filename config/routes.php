@@ -22,6 +22,33 @@ Route::set('rest_docs', 'api/v1/docs')
         'controller' => 'Rest_Docs',
         'action'     => 'index',
     ));
+	
+// rest/config/routes.php
+
+// корни
+Route::set('rest_orgs_roots', 'api/v1/orgs/roots')
+    ->defaults(array(
+        'controller' => 'Rest_Orgs',
+        'action'     => 'roots',
+    ));
+
+// дети узла
+Route::set('rest_orgs_children', 'api/v1/orgs/<id>/children', array(
+        'id' => '\d+',   // только числовой ID_ORG
+    ))
+    ->defaults(array(
+        'controller' => 'Rest_Orgs',
+        'action'     => 'children',
+    ));
+
+// общий ресурсный роут — ПОСЛЕ них
+Route::set('rest_orgs', 'api/v1/orgs(/<id>)', array(
+        'id' => '[^/.,;?\n]++',
+    ))
+    ->defaults(array(
+        'controller' => 'Rest_Orgs',
+        'action'     => 'dispatch',
+    ));
 
 // ---- Ресурсные роуты (REST по канону) ----
 //

@@ -23,6 +23,10 @@ Kohana::$config->load('menu')
                 'title' => 'docs',
                 'url' => 'api/v1/docs'
             ),
+			'OrgTree' => array(
+                'title' => 'OrgTree',
+                'url' => 'orgtree'
+            ),
 			
 			
         )

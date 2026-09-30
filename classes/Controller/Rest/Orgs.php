@@ -119,4 +119,29 @@ class Controller_Rest_Orgs extends Controller_Rest_Base
 
         $this->_respond(Rest_Response::ok(array('deleted' => true)));
     }
+	
+	
+	// GET /api/v1/orgs/roots
+public function action_roots()
+{
+    $items = $this->_org->get_roots();
+
+    $this->_respond(Rest_Response::ok(array('items' => $items)));
+}
+
+// GET /api/v1/orgs/<id>/children
+public function action_children()
+{
+    $id = (string) $this->request->param('id');
+    if (!ctype_digit($id)) {
+        $this->_respond(Rest_Response::error(
+            Rest_Error::VALIDATION_ERROR, 'id must be integer', 400
+        ));
+        return;
+    }
+
+    $items = $this->_org->get_children((int) $id);
+
+    $this->_respond(Rest_Response::ok(array('items' => $items)));
+}
 }

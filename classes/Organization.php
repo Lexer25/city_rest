@@ -374,4 +374,107 @@ class Organization
         }
         return "'" . str_replace("'", "''", (string) $v) . "'";
     }
+	
+	
+	/**
+	 * Прямые дети узла.
+	 *
+	 * @param int $parent_id  ID_ORG родителя
+	 * @return array  список нормализованных узлов с флагом has_children
+	 */
+	public function get_children($parent_id)
+	{
+		$parent_id = (int) $parent_id;
+
+		$sql = 'SELECT ' . $this->_select_fields()
+			 . ' FROM ' . self::TABLE
+			 . ' WHERE ID_PARENT = ' . $parent_id
+			 . ' AND ID_ORG <> ' . $parent_id
+			 . ' ORDER BY NAME';
+
+		$rows = DB::query(Database::SELECT, $sql)
+			->execute($this->_db)
+			->as_array();
+
+		$children = $this->_normalize_rows($rows);
+
+		if (empty($children)) {
+			return array();
+		}
+
+		// Один запрос — узнать, у кого из детей есть свои дети.
+		$child_ids = array();
+		foreach ($children as $c) {
+			$child_ids[] = (int) $c['id_org'];
+		}
+
+		$has = array();
+		$sql2 = 'SELECT DISTINCT ID_PARENT FROM ' . self::TABLE
+			  . ' WHERE ID_PARENT IN (' . implode(',', $child_ids) . ')';
+		$rows2 = DB::query(Database::SELECT, $sql2)
+			->execute($this->_db)
+			->as_array();
+
+		foreach ($rows2 as $r) {
+			$u = array_change_key_case($r, CASE_UPPER);
+			$has[(int) $u['ID_PARENT']] = true;
+		}
+
+		foreach ($children as &$c) {
+			$c['has_children'] = isset($has[(int) $c['id_org']]);
+		}
+		unset($c);
+
+		return $children;
+	}
+	
+	
+	/**
+ * Корневые организации (ID_PARENT = 1).
+ *
+ * @return array
+ */
+public function get_roots()
+{
+    $sql = 'SELECT ' . $this->_select_fields()
+         . ' FROM ' . self::TABLE
+         . ' WHERE ID_PARENT = 1'
+         . ' AND ID_ORG <> 1'
+         . ' ORDER BY NAME';
+
+    $rows = DB::query(Database::SELECT, $sql)
+        ->execute($this->_db)
+        ->as_array();
+
+    $items = $this->_normalize_rows($rows);
+
+    if (empty($items)) {
+        return array();
+    }
+
+    // Флаги has_children
+    $ids = array();
+    foreach ($items as $it) {
+        $ids[] = (int) $it['id_org'];
+    }
+
+    $has = array();
+    $sql2 = 'SELECT DISTINCT ID_PARENT FROM ' . self::TABLE
+          . ' WHERE ID_PARENT IN (' . implode(',', $ids) . ')';
+    $rows2 = DB::query(Database::SELECT, $sql2)
+        ->execute($this->_db)
+        ->as_array();
+
+    foreach ($rows2 as $r) {
+        $u = array_change_key_case($r, CASE_UPPER);
+        $has[(int) $u['ID_PARENT']] = true;
+    }
+
+    foreach ($items as &$it) {
+        $it['has_children'] = isset($has[(int) $it['id_org']]);
+    }
+    unset($it);
+
+    return $items;
+}
 }
